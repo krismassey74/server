@@ -348,6 +348,23 @@ static void set_fixed_header_named(DYNAMIC_COLUMN *str, DYN_HEADER *hdr)
 
 
 /**
+  Write index format static header part.
+*/
+
+static void set_fixed_header_index(DYNAMIC_COLUMN *str, DYN_HEADER *hdr)
+{
+  DBUG_ASSERT(hdr->column_count <= 0xffff);
+  DBUG_ASSERT(hdr->offset_size <= MAX_OFFSET_LENGTH_NM);
+  /* size of data offset, index format flag */
+  str->str[0]= ((str->str[0] & ~(DYNCOL_FLG_OFFSET | DYNCOL_FLG_NMOFFSET)) |
+            (hdr->offset_size - 2) | DYNCOL_FLG_NAMES);
+  int2store(str->str + 1, hdr->column_count);        /* columns number */
+  hdr->header= (uchar *)str->str + FIXED_HEADER_SIZE;
+  hdr->nmpool= hdr->dtpool= hdr->header + hdr->header_size;
+}
+
+
+/**
   Store offset and type information in the given place
 
   @param place           Beginning of the index entry
