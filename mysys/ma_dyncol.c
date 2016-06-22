@@ -225,6 +225,13 @@ static size_t name_size_named(void *keys, uint i)
 }
 
 
+static size_t name_size_index(void *keys __attribute__((unused)),
+                            uint i __attribute__((unused)))
+{
+  return 0;
+}
+
+
 /**
   Comparator function for references on column numbers for qsort
   (numeric format)
