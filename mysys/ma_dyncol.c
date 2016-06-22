@@ -454,6 +454,47 @@ static my_bool type_and_offset_store_named(uchar *place, size_t offset_size,
   return FALSE;
 }
 
+static my_bool type_and_offset_store_index(uchar *place, size_t offset_size,
+                                           DYNAMIC_COLUMN_TYPE type,
+                                           size_t offset)
+{
+  ulonglong val = (((ulong) offset) << 4) | (type - 1);
+  DBUG_ASSERT(type != DYN_COL_NULL);
+  DBUG_ASSERT(((type - 1) & (~0xf)) == 0); /* fit in 4 bits */
+  DBUG_ASSERT(offset_size >= 2 && offset_size <= 5);
+
+  /* Index entry starts with name offset; jump over it */
+  place+= COLUMN_NUMBER_SIZE;
+  switch (offset_size) {
+  case 2:
+    if (offset >= 0xfff)          /* all 1 value is reserved */
+      return TRUE;
+    int2store(place, val);
+    break;
+  case 3:
+    if (offset >= 0xfffff)        /* all 1 value is reserved */
+      return TRUE;
+    int3store(place, val);
+    break;
+  case 4:
+    if (offset >= 0xfffffff)      /* all 1 value is reserved */
+      return TRUE;
+    int4store(place, val);
+    break;
+  case 5:
+#if SIZEOF_SIZE_T > 4
+    if (offset >= 0xfffffffffull)    /* all 1 value is reserved */
+      return TRUE;
+#endif
+    int5store(place, val);
+    break;
+  case 1:
+  default:
+      return TRUE;
+  }
+  return FALSE;
+}
+
 /**
   Write numeric format header entry
    2 bytes - column number
