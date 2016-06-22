@@ -162,7 +162,7 @@ dynamic_column_update_many_fmt(DYNAMIC_COLUMN *str,
                                my_bool string_keys);
 static int plan_sort_num(const void *a, const void *b);
 static int plan_sort_named(const void *a, const void *b);
-
+static int plan_sort_index(const void *a, const void *b);
 /*
   Structure to hold information about dynamic columns record and
   iterate through it.
@@ -2702,6 +2702,11 @@ static int plan_sort_named(const void *a, const void *b)
 {
   return mariadb_dyncol_column_cmp_named((LEX_STRING *)((PLAN *)a)->key,
                                          (LEX_STRING *)((PLAN *)b)->key);
+}
+
+static int plan_sort_index(const void *a, const void *b)
+{
+  return *((uint *)((PLAN *)a)->key) - *((uint *)((PLAN *)b)->key);
 }
 
 #define DELTA_CHECK(S, D, C)        \
