@@ -557,6 +557,34 @@ static my_bool put_header_entry_named(DYN_HEADER *hdr,
 
 
 /**
+  Write index format header entry
+   2 bytes - column number
+   1-5 bytes - data offset combined with type
+
+  @param hdr             descriptor of dynamic column record
+  @param column_key      pointer to uint (column number)
+  @param value           value which will be written (only type used)
+  @param offset          offset of the data
+*/
+
+static my_bool put_header_entry_index(DYN_HEADER *hdr,
+                                    void *column_key,
+                                    DYNAMIC_COLUMN_VALUE *value,
+                                    size_t offset)
+{
+  uint *column_number= (uint *)column_key;
+  int2store(hdr->entry, *column_number);
+  DBUG_ASSERT(hdr->nmpool_size == 0);
+  if (type_and_offset_store_index(hdr->entry, hdr->offset_size,
+                                value->type,
+                                offset))
+      return TRUE;
+  hdr->entry= hdr->entry + hdr->entry_size;
+  return FALSE;
+}
+
+
+/**
   Calculate length of offset field for given data length
 
   @param data_length     Length of the data segment
