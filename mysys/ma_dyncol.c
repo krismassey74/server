@@ -58,7 +58,22 @@
       the data segment + 4 bit type
   * Names stored one after another
   * Data of above columns size of data and length depend on type
-*/
+
+/*
+ Index format:
+ ===================
+  * Fixed header part
+    1 byte flags:
+      0,1 bits - <offset size> - 2
+      2,3 bit  - 11 (means new index format)
+      4-7 bits - 0
+    2 bytes column counter
+  * Column directory sorted by column number, each entry contains:
+    2 bytes column number
+    <offset size> bytes (2-5) combined offset from beginning of
+      the data segment + 4 bit type
+  * Data of above columns size of data and length depend on type
+  */
 
 #include "mysys_priv.h"
 #include <m_string.h>
@@ -642,6 +657,20 @@ static struct st_service_funcs fmt_data[2]=
     &plan_sort_named,
     &dynamic_column_offset_bytes_named,
     &type_and_offset_read_named
+  },
+  {
+    FIXED_HEADER_SIZE,
+    COLUMN_NUMBER_SIZE,
+    sizeof(uint),
+    MAX_OFFSET_LENGTH_NM,
+    &name_size_index,
+    &column_sort_index,
+    &check_limit_index,
+    &set_fixed_header_index,
+    &put_header_entry_index,
+    &plan_sort_index,
+    &dynamic_column_offset_bytes_index,
+    &type_and_offset_read_index
   }
 };
 
