@@ -264,6 +264,17 @@ int mariadb_dyncol_column_cmp_named(const LEX_STRING *s1, const LEX_STRING *s2)
 
 /**
   Comparator function for references on column numbers for qsort
+  (index format)
+*/
+
+static int column_sort_index(const void *a, const void *b)
+{
+  return **((uint **)a) - **((uint **)b);
+}
+
+
+/**
+  Comparator function for references on column numbers for qsort
   (names format)
 */
 
