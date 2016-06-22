@@ -620,6 +620,21 @@ static size_t dynamic_column_offset_bytes_named(size_t data_length)
   return MAX_OFFSET_LENGTH_NM + 1;        /* For an error generation */
 }
 
+static size_t dynamic_column_offset_bytes_index(size_t data_length)
+{
+  if (data_length < 0xfff)                /* all 1 value is reserved */
+    return 2;
+  if (data_length < 0xfffff)              /* all 1 value is reserved */
+    return 3;
+  if (data_length < 0xfffffff)            /* all 1 value is reserved */
+    return 4;
+#if SIZEOF_SIZE_T > 4
+  if (data_length < 0xfffffffffull)       /* all 1 value is reserved */
+#endif
+    return 5;
+  return MAX_OFFSET_LENGTH_NM + 1;        /* For an error generation */
+}
+
 /**
   Read offset and type information from index entry
 
