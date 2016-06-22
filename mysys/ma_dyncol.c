@@ -306,6 +306,16 @@ static my_bool check_limit_named(const void *val)
 
 
 /**
+  Check limit function (index format)
+*/
+
+static my_bool check_limit_index(const void *val)
+{
+  return **((uint **)val) > UINT_MAX16;
+}
+
+
+/**
   Write numeric format static header part.
 */
 
