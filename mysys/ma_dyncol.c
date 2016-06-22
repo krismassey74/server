@@ -714,6 +714,41 @@ static my_bool type_and_offset_read_named(DYNAMIC_COLUMN_TYPE *type,
   return (*offset >= lim);
 }
 
+static my_bool type_and_offset_read_index(DYNAMIC_COLUMN_TYPE *type,
+                                          size_t *offset,
+                                          uchar *place, size_t offset_size)
+{
+  ulonglong UNINIT_VAR(val);
+  ulonglong UNINIT_VAR(lim);
+  DBUG_ASSERT(offset_size >= 2 && offset_size <= 5);
+
+  switch (offset_size) {
+  case 2:
+    val= uint2korr(place);
+    lim= 0xfff;
+    break;
+  case 3:
+    val= uint3korr(place);
+    lim= 0xfffff;
+    break;
+  case 4:
+    val= uint4korr(place);
+    lim= 0xfffffff;
+    break;
+  case 5:
+    val= uint5korr(place);
+    lim= 0xfffffffffull;
+    break;
+  case 1:
+  default:
+    DBUG_ASSERT(0);                             /* impossible */
+    return 1;
+  }
+  *type= (val & 0xf) + 1;
+  *offset= val >> 4;
+  return (*offset >= lim);
+}
+
 /**
   Format descriptor, contain constants and function references for
   format processing
