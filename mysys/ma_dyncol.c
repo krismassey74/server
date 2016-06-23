@@ -59,7 +59,6 @@
   * Names stored one after another
   * Data of above columns size of data and length depend on type
 
-/*
  Index format:
  ===================
   * Fixed header part
@@ -92,6 +91,7 @@ uint32 copy_and_convert(char *to, uint32 to_length, CHARSET_INFO *to_cs,
 #define DYNCOL_FLG_OFFSET   (1|2)
 #define DYNCOL_FLG_NAMES    4
 #define DYNCOL_FLG_NMOFFSET (8|16)
+#define DYNCOL_FLG_IDXFMT 32
 /**
   All known flags mask that could be set.
 
@@ -103,7 +103,8 @@ uint32 copy_and_convert(char *to, uint32 to_length, CHARSET_INFO *to_cs,
 enum enum_dyncol_format
 {
   dyncol_fmt_num= 0,
-  dyncol_fmt_str= 1
+  dyncol_fmt_str= 1,
+  dyncol_fmt_index= 2
 };
 
 /* dynamic column size reserve */
@@ -162,7 +163,6 @@ dynamic_column_update_many_fmt(DYNAMIC_COLUMN *str,
                                my_bool string_keys);
 static int plan_sort_num(const void *a, const void *b);
 static int plan_sort_named(const void *a, const void *b);
-static int plan_sort_index(const void *a, const void *b);
 /*
   Structure to hold information about dynamic columns record and
   iterate through it.
@@ -225,13 +225,6 @@ static size_t name_size_named(void *keys, uint i)
 }
 
 
-static size_t name_size_index(void *keys __attribute__((unused)),
-                            uint i __attribute__((unused)))
-{
-  return 0;
-}
-
-
 /**
   Comparator function for references on column numbers for qsort
   (numeric format)
@@ -264,17 +257,6 @@ int mariadb_dyncol_column_cmp_named(const LEX_STRING *s1, const LEX_STRING *s2)
 
 /**
   Comparator function for references on column numbers for qsort
-  (index format)
-*/
-
-static int column_sort_index(const void *a, const void *b)
-{
-  return **((uint **)a) - **((uint **)b);
-}
-
-
-/**
-  Comparator function for references on column numbers for qsort
   (names format)
 */
 
@@ -302,16 +284,6 @@ static my_bool check_limit_num(const void *val)
 static my_bool check_limit_named(const void *val)
 {
   return (*((LEX_STRING **)val))->length > MAX_NAME_LENGTH;
-}
-
-
-/**
-  Check limit function (index format)
-*/
-
-static my_bool check_limit_index(const void *val)
-{
-  return **((uint **)val) > UINT_MAX16;
 }
 
 
@@ -356,8 +328,8 @@ static void set_fixed_header_index(DYNAMIC_COLUMN *str, DYN_HEADER *hdr)
   DBUG_ASSERT(hdr->column_count <= 0xffff);
   DBUG_ASSERT(hdr->offset_size <= MAX_OFFSET_LENGTH_NM);
   /* size of data offset, index format flag */
-  str->str[0]= ((str->str[0] & ~(DYNCOL_FLG_OFFSET | DYNCOL_FLG_NMOFFSET)) |
-            (hdr->offset_size - 2) | DYNCOL_FLG_NAMES);
+  str->str[0]= ((str->str[0] & ~(DYNCOL_FLG_OFFSET | DYNCOL_FLG_NMOFFSET | DYNCOL_FLG_IDXFMT)) |
+            (hdr->offset_size - 2) | DYNCOL_FLG_IDXFMT);
   int2store(str->str + 1, hdr->column_count);        /* columns number */
   hdr->header= (uchar *)str->str + FIXED_HEADER_SIZE;
   hdr->nmpool= hdr->dtpool= hdr->header + hdr->header_size;
@@ -424,47 +396,6 @@ static my_bool type_and_offset_store_named(uchar *place, size_t offset_size,
 
   /* Index entry starts with name offset; jump over it */
   place+= COLUMN_NAMEPTR_SIZE;
-  switch (offset_size) {
-  case 2:
-    if (offset >= 0xfff)          /* all 1 value is reserved */
-      return TRUE;
-    int2store(place, val);
-    break;
-  case 3:
-    if (offset >= 0xfffff)        /* all 1 value is reserved */
-      return TRUE;
-    int3store(place, val);
-    break;
-  case 4:
-    if (offset >= 0xfffffff)      /* all 1 value is reserved */
-      return TRUE;
-    int4store(place, val);
-    break;
-  case 5:
-#if SIZEOF_SIZE_T > 4
-    if (offset >= 0xfffffffffull)    /* all 1 value is reserved */
-      return TRUE;
-#endif
-    int5store(place, val);
-    break;
-  case 1:
-  default:
-      return TRUE;
-  }
-  return FALSE;
-}
-
-static my_bool type_and_offset_store_index(uchar *place, size_t offset_size,
-                                           DYNAMIC_COLUMN_TYPE type,
-                                           size_t offset)
-{
-  ulonglong val = (((ulong) offset) << 4) | (type - 1);
-  DBUG_ASSERT(type != DYN_COL_NULL);
-  DBUG_ASSERT(((type - 1) & (~0xf)) == 0); /* fit in 4 bits */
-  DBUG_ASSERT(offset_size >= 2 && offset_size <= 5);
-
-  /* Index entry starts with name offset; jump over it */
-  place+= COLUMN_NUMBER_SIZE;
   switch (offset_size) {
   case 2:
     if (offset >= 0xfff)          /* all 1 value is reserved */
@@ -567,22 +498,6 @@ static my_bool put_header_entry_named(DYN_HEADER *hdr,
   @param offset          offset of the data
 */
 
-static my_bool put_header_entry_index(DYN_HEADER *hdr,
-                                    void *column_key,
-                                    DYNAMIC_COLUMN_VALUE *value,
-                                    size_t offset)
-{
-  uint *column_number= (uint *)column_key;
-  int2store(hdr->entry, *column_number);
-  DBUG_ASSERT(hdr->nmpool_size == 0);
-  if (type_and_offset_store_index(hdr->entry, hdr->offset_size,
-                                value->type,
-                                offset))
-      return TRUE;
-  hdr->entry= hdr->entry + hdr->entry_size;
-  return FALSE;
-}
-
 
 /**
   Calculate length of offset field for given data length
@@ -606,21 +521,6 @@ static size_t dynamic_column_offset_bytes_num(size_t data_length)
 }
 
 static size_t dynamic_column_offset_bytes_named(size_t data_length)
-{
-  if (data_length < 0xfff)                /* all 1 value is reserved */
-    return 2;
-  if (data_length < 0xfffff)              /* all 1 value is reserved */
-    return 3;
-  if (data_length < 0xfffffff)            /* all 1 value is reserved */
-    return 4;
-#if SIZEOF_SIZE_T > 4
-  if (data_length < 0xfffffffffull)       /* all 1 value is reserved */
-#endif
-    return 5;
-  return MAX_OFFSET_LENGTH_NM + 1;        /* For an error generation */
-}
-
-static size_t dynamic_column_offset_bytes_index(size_t data_length)
 {
   if (data_length < 0xfff)                /* all 1 value is reserved */
     return 2;
@@ -714,41 +614,6 @@ static my_bool type_and_offset_read_named(DYNAMIC_COLUMN_TYPE *type,
   return (*offset >= lim);
 }
 
-static my_bool type_and_offset_read_index(DYNAMIC_COLUMN_TYPE *type,
-                                          size_t *offset,
-                                          uchar *place, size_t offset_size)
-{
-  ulonglong UNINIT_VAR(val);
-  ulonglong UNINIT_VAR(lim);
-  DBUG_ASSERT(offset_size >= 2 && offset_size <= 5);
-
-  switch (offset_size) {
-  case 2:
-    val= uint2korr(place);
-    lim= 0xfff;
-    break;
-  case 3:
-    val= uint3korr(place);
-    lim= 0xfffff;
-    break;
-  case 4:
-    val= uint4korr(place);
-    lim= 0xfffffff;
-    break;
-  case 5:
-    val= uint5korr(place);
-    lim= 0xfffffffffull;
-    break;
-  case 1:
-  default:
-    DBUG_ASSERT(0);                             /* impossible */
-    return 1;
-  }
-  *type= (val & 0xf) + 1;
-  *offset= val >> 4;
-  return (*offset >= lim);
-}
-
 /**
   Format descriptor, contain constants and function references for
   format processing
@@ -789,10 +654,10 @@ struct st_service_funcs
 
 
 /**
-  Actual our 2 format descriptors
+  Actual our 3 format descriptors
 */
 
-static struct st_service_funcs fmt_data[2]=
+static struct st_service_funcs fmt_data[3]=
 {
   {
     FIXED_HEADER_SIZE,
@@ -827,14 +692,14 @@ static struct st_service_funcs fmt_data[2]=
     COLUMN_NUMBER_SIZE,
     sizeof(uint),
     MAX_OFFSET_LENGTH_NM,
-    &name_size_index,
-    &column_sort_index,
-    &check_limit_index,
+    &name_size_num,
+    &column_sort_num,
+    &check_limit_num,
     &set_fixed_header_index,
-    &put_header_entry_index,
-    &plan_sort_index,
-    &dynamic_column_offset_bytes_index,
-    &type_and_offset_read_index
+    &put_header_entry_num,
+    &plan_sort_num,
+    &dynamic_column_offset_bytes_named,
+    &type_and_offset_read_named
   }
 };
 
@@ -2866,11 +2731,6 @@ static int plan_sort_named(const void *a, const void *b)
 {
   return mariadb_dyncol_column_cmp_named((LEX_STRING *)((PLAN *)a)->key,
                                          (LEX_STRING *)((PLAN *)b)->key);
-}
-
-static int plan_sort_index(const void *a, const void *b)
-{
-  return *((uint *)((PLAN *)a)->key) - *((uint *)((PLAN *)b)->key);
 }
 
 #define DELTA_CHECK(S, D, C)        \
