@@ -154,7 +154,7 @@ dynamic_column_get_internal(DYNAMIC_COLUMN *str,
                                 uint num_key, LEX_STRING *str_key);
 static enum enum_dyncol_func_result
 dynamic_column_exists_internal(DYNAMIC_COLUMN *str, uint num_key,
-                               LEX_STRING *str_key);
+                               LEX_STRING *str_key, enum enum_dyncol_format fmt);
 static enum enum_dyncol_func_result
 dynamic_column_update_many_fmt(DYNAMIC_COLUMN *str,
                                uint add_column_count,
@@ -1967,7 +1967,7 @@ mariadb_dyncol_create_many_index(DYNAMIC_COLUMN *str,
                                my_bool new_string)
 {
   DBUG_ENTER("mariadb_dyncol_create_many_index");
-  DBUG_RETURN(mariadb_dyncol_create_many_internal_fmt(str, column_count,
+  DBUG_RETURN(dynamic_column_create_many_internal_fmt(str, column_count,
   													  column_numbers, values,
   													  new_string, FALSE));
 }
@@ -2425,13 +2425,13 @@ err:
 enum enum_dyncol_func_result
 dynamic_column_exists(DYNAMIC_COLUMN *str, uint column_nr)
 {
-  return dynamic_column_exists_internal(str, column_nr, NULL);
+  return dynamic_column_exists_internal(str, column_nr, NULL, dyncol_fmt_num);
 }
 
 enum enum_dyncol_func_result
 mariadb_dyncol_exists_num(DYNAMIC_COLUMN *str, uint column_nr)
 {
-  return dynamic_column_exists_internal(str, column_nr, NULL);
+  return dynamic_column_exists_internal(str, column_nr, NULL, dyncol_fmt_num);
 }
 
 /**
@@ -2447,7 +2447,23 @@ enum enum_dyncol_func_result
 mariadb_dyncol_exists_named(DYNAMIC_COLUMN *str, LEX_STRING *name)
 {
   DBUG_ASSERT(name != NULL);
-  return dynamic_column_exists_internal(str, 0, name);
+  return dynamic_column_exists_internal(str, 0, name, dyncol_fmt_str);
+}
+
+
+/**
+  Check existence of the column in the packed string (by number)
+
+  @param str             The packed string to check the column
+  @param name            Number of column to check
+
+  @return ER_DYNCOL_* return code
+*/
+
+enum enum_dyncol_func_result
+mariadb_dyncol_exists_index(DYNAMIC_COLUMN *str, uint column_nr)
+{
+  return dynamic_column_exists_internal(str, column_nr, NULL, dyncol_fmt_index);
 }
 
 
@@ -2457,18 +2473,20 @@ mariadb_dyncol_exists_named(DYNAMIC_COLUMN *str, LEX_STRING *name)
   @param str             The packed string to check the column
   @param num_key         Number of the column to fetch (if strkey is NULL)
   @param str_key         Name of the column to fetch (or NULL)
+  @param fmt             Name of format in use
 
   @return ER_DYNCOL_* return code
 */
 
 static enum enum_dyncol_func_result
 dynamic_column_exists_internal(DYNAMIC_COLUMN *str, uint num_key,
-                               LEX_STRING *str_key)
+                               LEX_STRING *str_key, enum enum_dyncol_format fmt )
 {
   DYN_HEADER header;
   enum enum_dyncol_func_result rc;
   bzero(&header, sizeof(header));
-
+  header.format= fmt;
+  
   if (str->length == 0)
     return ER_DYNCOL_NO;                        /* no columns */
 
