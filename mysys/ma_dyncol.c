@@ -2486,7 +2486,7 @@ dynamic_column_exists_internal(DYNAMIC_COLUMN *str, uint num_key,
   enum enum_dyncol_func_result rc;
   bzero(&header, sizeof(header));
   header.format= fmt;
-  
+
   if (str->length == 0)
     return ER_DYNCOL_NO;                        /* no columns */
 
@@ -2626,7 +2626,7 @@ mariadb_dyncol_list_named(DYNAMIC_COLUMN *str, uint *count, LEX_STRING **names)
       str->length)
     return ER_DYNCOL_FORMAT;
 
-  if (header.format == dyncol_fmt_num)
+  if ((header.format % 2) == dyncol_fmt_num)
     *names= my_malloc(sizeof(LEX_STRING) * header.column_count +
                       DYNCOL_NUM_CHAR * header.column_count, MYF(0));
   else
@@ -2640,7 +2640,7 @@ mariadb_dyncol_list_named(DYNAMIC_COLUMN *str, uint *count, LEX_STRING **names)
        i < header.column_count;
        i++, read+= header.entry_size)
   {
-    if (header.format == dyncol_fmt_num)
+    if ((header.format % 2) == dyncol_fmt_num)
     {
       uint nm= uint2korr(read);
       (*names)[i].str= pool;
