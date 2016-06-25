@@ -80,8 +80,8 @@
 #include <my_time.h>
 
 uint32 copy_and_convert(char *to, uint32 to_length, CHARSET_INFO *to_cs,
-			const char *from, uint32 from_length,
-			CHARSET_INFO *from_cs, uint *errors);
+      const char *from, uint32 from_length,
+      CHARSET_INFO *from_cs, uint *errors);
 /*
   Flag byte bits
 
@@ -497,7 +497,21 @@ static my_bool put_header_entry_named(DYN_HEADER *hdr,
   @param value           value which will be written (only type used)
   @param offset          offset of the data
 */
-
+static my_bool put_header_entry_index(DYN_HEADER *hdr,
+                                    void *column_key,
+                                    DYNAMIC_COLUMN_VALUE *value,
+                                    size_t offset)
+{
+  uint *column_number= (uint *)column_key;
+  int2store(hdr->entry, *column_number);
+  DBUG_ASSERT(hdr->nmpool_size == 0);
+  if (type_and_offset_store_named(hdr->entry, hdr->offset_size,
+                                value->type,
+                                offset))
+      return TRUE;
+  hdr->entry= hdr->entry + hdr->entry_size;
+  return FALSE;
+}
 
 /**
   Calculate length of offset field for given data length
@@ -696,7 +710,7 @@ static struct st_service_funcs fmt_data[3]=
     &column_sort_num,
     &check_limit_num,
     &set_fixed_header_index,
-    &put_header_entry_num,
+    &put_header_entry_index,
     &plan_sort_num,
     &dynamic_column_offset_bytes_named,
     &type_and_offset_read_named
@@ -811,7 +825,7 @@ dynamic_column_var_uint_store(DYNAMIC_COLUMN *str, ulonglong val)
   Reads variable length unsigned integer value from a string
 
   @param data            The string from which the int should be read
-  @param data_length	 Max length of data
+  @param data_length   Max length of data
   @param len             Where to put length of the string read in bytes
 
   @return value of the unsigned integer read from the string
@@ -1842,8 +1856,7 @@ dynamic_column_create_many_internal_fmt(DYNAMIC_COLUMN *str,
   DYN_HEADER header;
   enum enum_dyncol_func_result rc;
   bzero(&header, sizeof(header));
-  header.format= (string_keys ? 1 : 0);
-
+  header.format= (string_keys ? 1 : ((str->str[0] |= 1 << 5) ? 2 : 0)); 
   if (new_str)
   {
     /* to make dynstr_free() working in case of errors */
@@ -1932,6 +1945,33 @@ mariadb_dyncol_create_many_named(DYNAMIC_COLUMN *str,
                                                       column_keys, values,
                                                       new_string, TRUE));
 }
+
+
+/**
+  Create packed string which contains given columns
+
+  @param str             String where to write the data
+  @param column_count    Number of columns in the arrays
+  @param column_numbers  Array of columns numbers
+  @param values          Array of columns values
+  @param new_string      True if we need allocate new string
+
+  @return ER_DYNCOL_* return code
+*/
+
+enum enum_dyncol_func_result
+mariadb_dyncol_create_many_index(DYNAMIC_COLUMN *str,
+                               uint column_count,
+                               uint *column_numbers,
+                               DYNAMIC_COLUMN_VALUE *values,
+                               my_bool new_string)
+{
+  DBUG_ENTER("mariadb_dyncol_create_many_index");
+  DBUG_RETURN(mariadb_dyncol_create_many_internal_fmt(str, column_count,
+  													  column_numbers, values,
+  													  new_string, FALSE));
+}
+
 
 /**
   Create packed string which contains given column
@@ -3507,7 +3547,7 @@ dynamic_column_update_many_fmt(DYNAMIC_COLUMN *str,
       {
         /* Inserting a NULL means delete the old data */
 
-        plan[i].act= PLAN_DELETE;	        /* Remove old value */
+        plan[i].act= PLAN_DELETE;         /* Remove old value */
         header_delta--;                         /* One row less in header */
         data_delta-= entry_data_size;           /* Less data to store */
         name_delta-= entry_name_size;
