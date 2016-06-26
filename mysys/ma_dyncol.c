@@ -2626,7 +2626,7 @@ mariadb_dyncol_list_named(DYNAMIC_COLUMN *str, uint *count, LEX_STRING **names)
       str->length)
     return ER_DYNCOL_FORMAT;
 
-  if ((header.format % 2) == dyncol_fmt_num)
+  if (header.format == dyncol_fmt_num)
     *names= my_malloc(sizeof(LEX_STRING) * header.column_count +
                       DYNCOL_NUM_CHAR * header.column_count, MYF(0));
   else
@@ -2640,7 +2640,7 @@ mariadb_dyncol_list_named(DYNAMIC_COLUMN *str, uint *count, LEX_STRING **names)
        i < header.column_count;
        i++, read+= header.entry_size)
   {
-    if ((header.format % 2) == dyncol_fmt_num)
+    if (header.format == dyncol_fmt_num)
     {
       uint nm= uint2korr(read);
       (*names)[i].str= pool;
@@ -2659,6 +2659,50 @@ mariadb_dyncol_list_named(DYNAMIC_COLUMN *str, uint *count, LEX_STRING **names)
       memcpy((*names)[i].str, (const void *)tmp.str, tmp.length);
       (*names)[i].str[tmp.length]= '\0'; // just for safety
     }
+  }
+  (*count)= header.column_count;
+  return ER_DYNCOL_OK;
+}
+
+/**
+  List not-null columns in the packed string (only index format)
+
+  @param str             The packed string
+  @param array_of_uint   Where to put reference on created array
+
+  @return ER_DYNCOL_* return code
+*/
+enum enum_dyncol_func_result
+mariadb_dyncol_list_index(DYNAMIC_COLUMN *str, uint *count, uint **nums)
+{
+  DYN_HEADER header;
+  uchar *read;
+  uint i;
+  enum enum_dyncol_func_result rc;
+
+  (*nums)= 0; (*count)= 0;                      /* In case of errors */
+
+  if (str->length == 0)
+    return ER_DYNCOL_OK;                        /* no columns */
+
+  if ((rc= init_read_hdr(&header, str)) < 0)
+    return rc;
+
+  if (header.format != dyncol_fmt_index)
+    return ER_DYNCOL_FORMAT;
+
+  if (header.entry_size * header.column_count + FIXED_HEADER_SIZE >
+      str->length)
+    return ER_DYNCOL_FORMAT;
+
+  if (!((*nums)= my_malloc(sizeof(uint) * header.column_count, MYF(0))))
+    return ER_DYNCOL_RESOURCE;
+
+  for (i= 0, read= header.header;
+       i < header.column_count;
+       i++, read+= header.entry_size)
+  {
+    (*nums)[i]= uint2korr(read);
   }
   (*count)= header.column_count;
   return ER_DYNCOL_OK;

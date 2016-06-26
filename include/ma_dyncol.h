@@ -158,7 +158,12 @@ mariadb_dyncol_create_many_named(DYNAMIC_COLUMN *str,
                                  MYSQL_LEX_STRING *column_keys,
                                  DYNAMIC_COLUMN_VALUE *values,
                                  my_bool new_string);
-
+enum enum_dyncol_func_result
+mariadb_dyncol_create_many_index(DYNAMIC_COLUMN *str,
+                                 uint column_count,
+                                 uint *column_numbers,
+                                 DYNAMIC_COLUMN_VALUE *values,
+                                 my_bool new_string);
 
 enum enum_dyncol_func_result
 mariadb_dyncol_update_many_num(DYNAMIC_COLUMN *str,
@@ -176,6 +181,8 @@ enum enum_dyncol_func_result
 mariadb_dyncol_exists_num(DYNAMIC_COLUMN *org, uint column_nr);
 enum enum_dyncol_func_result
 mariadb_dyncol_exists_named(DYNAMIC_COLUMN *str, MYSQL_LEX_STRING *name);
+enum enum_dyncol_func_result
+mariadb_dyncol_exists_index(DYNAMIC_COLUMN *org, uint column_nr);
 
 /* List of not NULL columns */
 enum enum_dyncol_func_result
@@ -183,6 +190,8 @@ mariadb_dyncol_list_num(DYNAMIC_COLUMN *str, uint *count, uint **nums);
 enum enum_dyncol_func_result
 mariadb_dyncol_list_named(DYNAMIC_COLUMN *str, uint *count,
                           MYSQL_LEX_STRING **names);
+enum enum_dyncol_func_result
+mariadb_dyncol_list_index(DYNAMIC_COLUMN *str, uint *count, uint **nums);
 
 /*
    if the column do not exists it is NULL
