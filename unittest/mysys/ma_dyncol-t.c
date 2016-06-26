@@ -42,7 +42,7 @@ void test_value_single_null()
   val.type= DYN_COL_NULL;
   mariadb_dyncol_value_init(&res);
   /* create column */
-  if (mariadb_dyncol_create_many_num(&str, 1, ids, &val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 1, ids, &val, 1))
     goto err;
   dynstr_append(&str, "\1"); str.length--; //check for overflow
   /* read column */
@@ -66,7 +66,7 @@ void test_value_single_uint(ulonglong num, const char *name)
   val.x.ulong_value= num;
   mariadb_dyncol_value_init(&res);
   /* create column */
-  if (mariadb_dyncol_create_many_num(&str, 1, ids, &val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 1, ids, &val, 1))
     goto err;
   dynstr_append(&str, "\1"); str.length--; //check for overflow
   /* read column */
@@ -91,7 +91,7 @@ void test_value_single_sint(longlong num, const char *name)
   val.x.long_value= num;
   mariadb_dyncol_value_init(&res);
   /* create column */
-  if (mariadb_dyncol_create_many_num(&str, 1, ids, &val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 1, ids, &val, 1))
     goto err;
   dynstr_append(&str, "\1"); str.length--; //check for overflow
   /* read column */
@@ -117,7 +117,7 @@ void test_value_single_double(double num, const char *name)
   val.x.double_value= num;
   mariadb_dyncol_value_init(&res);
   /* create column */
-  if (mariadb_dyncol_create_many_num(&str, 1, ids, &val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 1, ids, &val, 1))
     goto err;
   dynstr_append(&str, "\1"); str.length--; //check for overflow
   /* read column */
@@ -148,7 +148,7 @@ void test_value_single_decimal(const char *num)
   mariadb_dyncol_value_init(&res);
 
   /* create column */
-  if (mariadb_dyncol_create_many_num(&str, 1, ids, &val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 1, ids, &val, 1))
     goto err;
   dynstr_append(&str, "\1"); str.length--; //check for overflow
   /* read column */
@@ -223,7 +223,7 @@ void test_value_single_string(const char *string, size_t len,
   mariadb_dyncol_value_init(&res);
 
   /* create column */
-  if (mariadb_dyncol_create_many_num(&str, 1, ids, &val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 1, ids, &val, 1))
     goto err;
   dynstr_append(&str, "\1"); str.length--; //check for overflow
   /* read column */
@@ -256,7 +256,7 @@ void test_value_single_date(uint year, uint month, uint day, const char *name)
   val.x.time_value.day= day;
   mariadb_dyncol_value_init(&res);
   /* create column */
-  if (mariadb_dyncol_create_many_num(&str, 1, ids, &val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 1, ids, &val, 1))
     goto err;
   dynstr_append(&str, "\1"); str.length--; //check for overflow
   /* read column */
@@ -290,7 +290,7 @@ void test_value_single_time(uint neg, uint hour, uint minute, uint second,
   val.x.time_value.second_part= mic;
   mariadb_dyncol_value_init(&res);
   /* create column */
-  if (mariadb_dyncol_create_many_num(&str, 1, ids, &val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 1, ids, &val, 1))
     goto err;
   dynstr_append(&str, "\1"); str.length--; //check for overflow
   /* read column */
@@ -332,7 +332,7 @@ void test_value_single_datetime(uint neg, uint year, uint month, uint day,
   val.x.time_value.second_part= mic;
   mariadb_dyncol_value_init(&res);
   /* create column */
-  if (mariadb_dyncol_create_many_num(&str, 1, ids, &val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 1, ids, &val, 1))
     goto err;
   dynstr_append(&str, "\1"); str.length--; //check for overflow
   /* read column */
@@ -415,7 +415,7 @@ void test_value_multi(ulonglong num0,
   for (i= 0; i < 9; i++)
     mariadb_dyncol_value_init(res + i);
   /* create column */
-  if (mariadb_dyncol_create_many_num(&str, 9, column_numbers, val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 9, column_numbers, val, 1))
     goto err;
   dynstr_append(&str, "\1"); str.length--; //check for overflow
   /* read column */
@@ -476,7 +476,7 @@ void test_value_multi_same_num()
   for (i= 0; i < 5; i++)
     val[i].type= DYN_COL_NULL;
   /* create column */
-  if (!mariadb_dyncol_create_many_num(&str, 5, column_numbers, val, 1))
+  if (!mariadb_dyncol_create_many_index(&str, 5, column_numbers, val, 1))
     goto err;
   rc= TRUE;
 err:
@@ -496,7 +496,7 @@ void test_update_multi(uint *column_numbers, uint *column_values,
 
   val.type= DYN_COL_UINT;
   val.x.ulong_value= column_values[0];
-  if (mariadb_dyncol_create_many_num(&str, 1, column_numbers, &val, 1))
+  if (mariadb_dyncol_create_many_index(&str, 1, column_numbers, &val, 1))
     goto err;
   for (i= 1; i < all; i++)
   {
@@ -513,21 +513,21 @@ void test_update_multi(uint *column_numbers, uint *column_values,
       if (null_values[j])
       {
         if (val.type != DYN_COL_NULL ||
-            mariadb_dyncol_exists_num(&str, column_numbers[j]) == ER_DYNCOL_YES)
+            mariadb_dyncol_exists_index(&str, column_numbers[j]) == ER_DYNCOL_YES)
           goto err;
       }
       else
       {
         if (val.type != DYN_COL_UINT ||
             val.x.ulong_value != column_values[j] ||
-            mariadb_dyncol_exists_num(&str, column_numbers[j]) == ER_DYNCOL_NO)
+            mariadb_dyncol_exists_index(&str, column_numbers[j]) == ER_DYNCOL_NO)
           goto err;
       }
     }
     if (i < only_add)
     {
       uint elements, *num;
-      if (mariadb_dyncol_list_num(&str, &elements, &num))
+      if (mariadb_dyncol_list_index(&str, &elements, &num))
       {
         my_free(num);
         goto err;
@@ -588,10 +588,10 @@ void test_empty_string()
   rc= mariadb_dyncol_update_many_num(&str, 1, ids, vals);
   ok( (rc == ER_DYNCOL_OK) && (str.str == 0), "%s", "empty delete");
 
-  rc= mariadb_dyncol_exists_num(&str, 1);
+  rc= mariadb_dyncol_exists_index(&str, 1);
   ok( (rc == ER_DYNCOL_NO), "%s", "empty exists");
 
-  rc= mariadb_dyncol_list_num(&str, &number_of_uint, &array_of_uint);
+  rc= mariadb_dyncol_list_index(&str, &number_of_uint, &array_of_uint);
   ok( (rc == ER_DYNCOL_OK) && (number_of_uint == 0) && (str.str == 0),
       "%s", "empty list");
 
@@ -674,11 +674,11 @@ void test_update_many(uint *column_numbers, uint *column_values,
     res[i].type= DYN_COL_UINT;
     res[i].x.ulong_value= result_values[i];
   }
-  if (mariadb_dyncol_create_many_num(&str1, column_count, column_numbers, val, 1))
+  if (mariadb_dyncol_create_many_index(&str1, column_count, column_numbers, val, 1))
     goto err;
   if (mariadb_dyncol_update_many_num(&str1, update_count, update_numbers, upd))
     goto err;
-  if (mariadb_dyncol_create_many_num(&str2, result_count, result_numbers, res, 1))
+  if (mariadb_dyncol_create_many_index(&str2, result_count, result_numbers, res, 1))
     goto err;
   if (str1.length == str2.length &&
       memcmp(str1.str, str2.str, str1.length) ==0)
@@ -714,7 +714,7 @@ static void test_mdev_9773()
   mariadb_dyncol_init(&dynstr);
 
   /* create numeric */
-  rc= mariadb_dyncol_create_many_num(&dynstr, 5, num_keys, vals, 1);
+  rc= mariadb_dyncol_create_many_index(&dynstr, 5, num_keys, vals, 1);
 
   if (rc == ER_DYNCOL_OK)
     rc= mariadb_dyncol_unpack(&dynstr, &unpack_columns, &unpack_keys,
